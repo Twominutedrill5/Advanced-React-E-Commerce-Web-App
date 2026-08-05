@@ -42,6 +42,7 @@ export default function Profile() {
             email: user.email,
             name: "",
             address: "",
+            role: "user",
             createdAt: serverTimestamp(),
           },
           { merge: true },

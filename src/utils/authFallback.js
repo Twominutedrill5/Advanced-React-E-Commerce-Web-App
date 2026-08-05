@@ -36,6 +36,9 @@ export function createDemoUser(email) {
     uid: `demo-${Date.now()}`,
     email: email || "demo@email.com",
     isDemo: true,
+    // Demo accounts get admin so the product-management demo still works
+    // when Firebase email/password auth is disabled.
+    role: "admin",
   };
 }
 

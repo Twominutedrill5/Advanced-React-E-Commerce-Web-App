@@ -22,7 +22,8 @@ const EMPTY_PRODUCT_FORM = {
 };
 
 export default function Home() {
-  const { user } = useAuth();
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const [category, setCategory] = useState(ALL_CATEGORIES);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_PRODUCT_FORM);
@@ -198,7 +199,7 @@ export default function Home() {
         <div className="state-block">
           <p className="state-block__headline">Nothing in this section yet.</p>
           <p>Choose a different section to keep browsing.</p>
-          {category === ALL_CATEGORIES && user && (
+          {category === ALL_CATEGORIES && isAdmin && (
             <>
               <p>
                 The Firestore products collection is empty. Load the original
@@ -224,7 +225,7 @@ export default function Home() {
           {products.map((product) => (
             <div key={product.id} className="product-grid__cell">
               <ProductCard product={product} />
-              {user && (
+              {isAdmin && (
                 <div className="product-grid__actions">
                   <button
                     type="button"
@@ -247,7 +248,7 @@ export default function Home() {
         </div>
       )}
 
-      {user && (
+      {isAdmin && (
         <section className="summary" style={{ marginTop: "48px" }}>
           <button
             type="button"

@@ -34,6 +34,7 @@ export default function Register() {
           email: credential.user.email,
           name: "",
           address: "",
+          role: "user",
           createdAt: serverTimestamp(),
         },
         { merge: true },

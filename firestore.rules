@@ -1,0 +1,44 @@
+rules_version = '2';
+
+// Security rules for the "ecommerce-c9762" Firebase project.
+// This project has no Firebase CLI / firebase.json set up, so these rules
+// are not auto-deployed. Paste this file's contents into:
+//   Firebase Console -> Firestore Database -> Rules -> Publish
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    // Users can only read/create/update/delete their own profile document.
+    match /users/{userId} {
+      allow read, update, delete: if isOwner(userId);
+      allow create: if isOwner(userId);
+    }
+
+    // Product catalog is publicly readable, but only admins can manage it.
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Orders can only be created by the signed-in user for themselves, and
+    // only read back by that same user. Orders are immutable once placed.
+    match /orders/{orderId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}
