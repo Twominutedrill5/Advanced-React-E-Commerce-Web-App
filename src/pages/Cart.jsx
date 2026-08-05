@@ -1,6 +1,10 @@
-import { useSelector, useDispatch } from 'react-redux';
-import { Link } from 'react-router-dom';
-import ProductImage from '../components/ProductImage';
+import { useSelector, useDispatch } from "react-redux";
+import { Link } from "react-router-dom";
+import { useState } from "react";
+import { collection, addDoc } from "firebase/firestore";
+import ProductImage from "../components/ProductImage";
+import { db } from "../Library/Firebase/Firebase";
+import { useAuth } from "../context/AuthContext";
 import {
   selectCartItems,
   selectItemCount,
@@ -11,7 +15,7 @@ import {
   removeFromCart,
   checkout,
   dismissReceipt,
-} from '../store/cartSlice';
+} from "../store/cartSlice";
 
 export default function Cart() {
   const items = useSelector(selectCartItems);
@@ -19,6 +23,47 @@ export default function Cart() {
   const total = useSelector(selectCartTotal);
   const lastOrderTotal = useSelector(selectLastOrderTotal);
   const dispatch = useDispatch();
+  const { user } = useAuth();
+  const [checkoutError, setCheckoutError] = useState("");
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+
+  const handleCheckout = async () => {
+    if (!user) {
+      setCheckoutError(
+        "Please log in before checking out so we can store your order history.",
+      );
+      return;
+    }
+
+    if (items.length === 0 || isSubmittingOrder) {
+      return;
+    }
+
+    setIsSubmittingOrder(true);
+    setCheckoutError("");
+
+    try {
+      await addDoc(collection(db, "orders"), {
+        userId: user.uid,
+        userEmail: user.email || null,
+        createdAtMs: Date.now(),
+        total,
+        items: items.map((item) => ({
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          price: item.price,
+          count: item.count,
+          image: item.image || null,
+        })),
+      });
+      dispatch(checkout());
+    } catch (error) {
+      setCheckoutError(error?.message || "Could not place order.");
+    } finally {
+      setIsSubmittingOrder(false);
+    }
+  };
 
   return (
     <>
@@ -32,12 +77,24 @@ export default function Cart() {
         <div className="receipt" role="status">
           <p className="receipt__headline">Order placed.</p>
           <p>
-            ${lastOrderTotal.toFixed(2)} charged to nobody — this is a demo store, so the
-            order clears the cart instead of shipping anything.
+            ${lastOrderTotal.toFixed(2)} order saved to Firebase. View it in
+            your order history.
           </p>
           <div className="receipt__actions">
-            <Link to="/" className="btn-ink" onClick={() => dispatch(dismissReceipt())}>
+            <Link
+              to="/"
+              className="btn-ink"
+              onClick={() => dispatch(dismissReceipt())}
+            >
               Keep browsing
+            </Link>
+            <Link
+              to="/orders"
+              className="btn-ink"
+              onClick={() => dispatch(dismissReceipt())}
+              style={{ marginTop: "8px" }}
+            >
+              View orders
             </Link>
           </div>
         </div>
@@ -49,7 +106,7 @@ export default function Cart() {
           <p>
             <Link to="/" className="text-link">
               Head back to the catalog
-            </Link>{' '}
+            </Link>{" "}
             and add something.
           </p>
         </div>
@@ -71,9 +128,15 @@ export default function Cart() {
                 <div className="cart-line__body">
                   <p className="cart-line__category">{item.category}</p>
                   <h2 className="cart-line__title">{item.title}</h2>
-                  <p className="cart-line__unit">${item.price.toFixed(2)} each</p>
+                  <p className="cart-line__unit">
+                    ${item.price.toFixed(2)} each
+                  </p>
 
-                  <div className="counter" role="group" aria-label={`Quantity for ${item.title}`}>
+                  <div
+                    className="counter"
+                    role="group"
+                    aria-label={`Quantity for ${item.title}`}
+                  >
                     <button
                       type="button"
                       onClick={() => dispatch(decreaseCount(item.id))}
@@ -125,11 +188,20 @@ export default function Cart() {
               </div>
             </dl>
 
-            <button type="button" className="btn-ink btn-ink--block" onClick={() => dispatch(checkout())}>
-              Check out
+            <button
+              type="button"
+              className="btn-ink btn-ink--block"
+              onClick={handleCheckout}
+              disabled={isSubmittingOrder}
+            >
+              {isSubmittingOrder
+                ? "Placing order..."
+                : "Place order in Firebase"}
             </button>
+            {checkoutError && <p className="field-note">{checkoutError}</p>}
             <p className="field-note">
-              Nothing is charged. Checkout empties the cart and clears sessionStorage.
+              Orders are stored with user, products, created date, and total
+              price.
             </p>
           </aside>
         </div>
