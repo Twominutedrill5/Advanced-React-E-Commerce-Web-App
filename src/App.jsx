@@ -1,6 +1,7 @@
 import { Route, Routes, NavLink } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthProvider } from "./context/AuthContext";
+import { useAuth } from "./context/useAuth";
 import { ProductProvider } from "./context/ProductContext";
 import Home from "./pages/Home";
 import Register from "./pages/Register";

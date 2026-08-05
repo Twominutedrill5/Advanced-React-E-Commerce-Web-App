@@ -16,7 +16,7 @@ vi.mock("firebase/firestore", () => ({
   addDoc: vi.fn(),
 }));
 vi.mock("../../Library/Firebase/Firebase", () => ({ db: {} }));
-vi.mock("../../context/AuthContext", () => ({
+vi.mock("../../context/useAuth", () => ({
   useAuth: () => ({ user: null }),
 }));
 

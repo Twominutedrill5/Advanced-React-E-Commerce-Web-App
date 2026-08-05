@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "../Library/Firebase/Firebase";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { clearDemoUser } from "../utils/authFallback";
 
 export default function Logout() {

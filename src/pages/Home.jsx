@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import CategorySelect from "../components/CategorySelect";
 import ProductCard from "../components/ProductCard";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import {
   useProducts,
   useCategories,

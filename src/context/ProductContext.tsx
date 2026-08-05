@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, ReactNode } from "react";
+import { createContext, useReducer, ReactNode } from "react";
 
 interface Product {
   id: number;
@@ -65,14 +65,6 @@ export const ProductProvider = ({ children }: { children: ReactNode }) => {
       {children}
     </ProductContext.Provider>
   );
-};
-
-export const useProduct = () => {
-  const context = useContext(ProductContext);
-  if (!context) {
-    throw new Error("useProduct must be used within ProductProvider");
-  }
-  return context;
 };
 
 export default ProductContext;

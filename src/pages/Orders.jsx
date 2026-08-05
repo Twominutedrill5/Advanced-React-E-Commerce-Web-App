@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { Link, useNavigate } from "react-router-dom";
 import { db } from "../Library/Firebase/Firebase";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 function formatDate(timestampMs) {
   if (!timestampMs) {

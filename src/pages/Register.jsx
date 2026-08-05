@@ -4,7 +4,7 @@ import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth } from "../Library/Firebase/Firebase";
 import { db } from "../Library/Firebase/Firebase";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import {
   createDemoUser,
   isAuthProviderDisabled,

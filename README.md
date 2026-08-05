@@ -1,10 +1,13 @@
 # Sundry — Catalog & Cart
 
-An e-commerce front end built on the [FakeStoreAPI](https://fakestoreapi.com/).
-Browse a live product catalog, filter it by section, build a cart that survives a
-page refresh, and run a simulated checkout.
+An e-commerce front end built on the [FakeStoreAPI](https://fakestoreapi.com/) catalog,
+with Firebase Authentication and Firestore for accounts, carts, and order history.
+Browse a live product catalog, filter it by section, sign in, build a cart that
+survives a page refresh, and check out to a real order record.
 
-**Stack:** React 19 · Vite · React Query (TanStack Query) · Redux Toolkit · React Router
+**Live demo:** [https://your-app.vercel.app](https://your-app.vercel.app) <!-- TODO: replace with your deployed Vercel URL -->
+
+**Stack:** React 19 · Vite · React Query (TanStack Query) · Redux Toolkit · React Router · Firebase (Auth + Firestore) · Vitest + React Testing Library
 
 ---
 
@@ -123,3 +126,30 @@ src/
 - Simulated checkout with confirmation
 - Loading, error and empty states on every view
 - Responsive down to mobile, keyboard focus styles, reduced-motion support
+- Firebase Authentication (login/register/logout), with nav and product management gated to signed-in users
+- Orders written to Firestore on checkout and viewable on the Orders page
+
+---
+
+## Testing
+
+Unit and integration tests are written with [Vitest](https://vitest.dev/) and
+[React Testing Library](https://testing-library.com/react):
+
+```bash
+npm test       # watch mode
+npm run test:run  # single run (used in CI)
+```
+
+- `src/components/__tests__/ProductCard.test.jsx` — unit tests for rendering and add-to-cart
+- `src/components/__tests__/CategorySelect.test.jsx` — unit tests for loading/error states and selection
+- `src/pages/__tests__/Cart.integration.test.jsx` — integration test verifying the Cart page updates when a product is added
+
+## CI/CD
+
+`.github/workflows/main.yml` defines a single pipeline:
+
+1. **Build & Test** — installs dependencies, runs the test suite, and builds the app on every push/PR to `main`.
+2. **Deploy** — if the build/test job succeeds and the push was to `main`, deploys the built app to Vercel.
+
+The deploy job requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` secrets configured in the GitHub repo settings.

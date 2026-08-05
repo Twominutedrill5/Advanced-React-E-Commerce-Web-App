@@ -4,7 +4,7 @@ import { useState } from "react";
 import { collection, addDoc } from "firebase/firestore";
 import ProductImage from "../components/ProductImage";
 import { db } from "../Library/Firebase/Firebase";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import {
   selectCartItems,
   selectItemCount,
