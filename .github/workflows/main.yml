@@ -27,7 +27,7 @@ jobs:
         run: npm ci
 
       - name: Run unit & integration tests
-        run: npm test -- --run
+        run: npm test -- --ci
 
       - name: Build project
         run: npm run build

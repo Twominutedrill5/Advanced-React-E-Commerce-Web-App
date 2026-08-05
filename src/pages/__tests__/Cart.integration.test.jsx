@@ -1,4 +1,3 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Provider } from "react-redux";
@@ -11,12 +10,12 @@ import Cart from "../Cart";
 // Cart.jsx talks to Firestore (checkout) and reads the logged-in user. Those
 // are external boundaries for this test — we only care that adding a product
 // updates what the Cart page renders, so they're mocked out.
-vi.mock("firebase/firestore", () => ({
-  collection: vi.fn(),
-  addDoc: vi.fn(),
+jest.mock("firebase/firestore", () => ({
+  collection: jest.fn(),
+  addDoc: jest.fn(),
 }));
-vi.mock("../../Library/Firebase/Firebase", () => ({ db: {} }));
-vi.mock("../../context/useAuth", () => ({
+jest.mock("../../Library/Firebase/Firebase", () => ({ db: {} }));
+jest.mock("../../context/useAuth", () => ({
   useAuth: () => ({ user: null }),
 }));
 

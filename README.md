@@ -5,9 +5,9 @@ with Firebase Authentication and Firestore for accounts, carts, and order histor
 Browse a live product catalog, filter it by section, sign in, build a cart that
 survives a page refresh, and check out to a real order record.
 
-**Live demo:** [https://your-app.vercel.app](https://your-app.vercel.app) <!-- TODO: replace with your deployed Vercel URL -->
+**Live demo:** [https://advanced-react-e-commerce-web-app-vert.vercel.app/](https://advanced-react-e-commerce-web-app-vert.vercel.app/)
 
-**Stack:** React 19 · Vite · React Query (TanStack Query) · Redux Toolkit · React Router · Firebase (Auth + Firestore) · Vitest + React Testing Library
+**Stack:** React 19 · Vite · React Query (TanStack Query) · Redux Toolkit · React Router · Firebase (Auth + Firestore) · Jest + React Testing Library
 
 ---
 
@@ -133,12 +133,12 @@ src/
 
 ## Testing
 
-Unit and integration tests are written with [Vitest](https://vitest.dev/) and
+Unit and integration tests are written with [Jest](https://jestjs.io/) and
 [React Testing Library](https://testing-library.com/react):
 
 ```bash
-npm test       # watch mode
-npm run test:run  # single run (used in CI)
+npm test          # single run (used in CI)
+npm run test:watch  # watch mode
 ```
 
 - `src/components/__tests__/ProductCard.test.jsx` — unit tests for rendering and add-to-cart

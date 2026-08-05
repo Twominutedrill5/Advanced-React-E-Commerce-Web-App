@@ -1,23 +1,19 @@
-import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CategorySelect from "../CategorySelect";
-
-const { useCategoriesMock } = vi.hoisted(() => ({
-  useCategoriesMock: vi.fn(),
-}));
+import { useCategories } from "../../hooks/useCatalog";
 
 // CategorySelect pulls its options from Firestore via useCatalog. Mocking the
 // hook keeps this a focused unit test of CategorySelect's own rendering and
 // interaction logic, independent of the network/Firebase.
-vi.mock("../../hooks/useCatalog", () => ({
+jest.mock("../../hooks/useCatalog", () => ({
   ALL_CATEGORIES: "all",
-  useCategories: () => useCategoriesMock(),
+  useCategories: jest.fn(),
 }));
 
 describe("CategorySelect", () => {
   it("shows a loading state while categories are pending", () => {
-    useCategoriesMock.mockReturnValue({
+    useCategories.mockReturnValue({
       data: undefined,
       isPending: true,
       isError: false,
@@ -30,7 +26,7 @@ describe("CategorySelect", () => {
   });
 
   it("renders every loaded category as an option", () => {
-    useCategoriesMock.mockReturnValue({
+    useCategories.mockReturnValue({
       data: ["electronics", "jewelery"],
       isPending: false,
       isError: false,
@@ -50,12 +46,12 @@ describe("CategorySelect", () => {
   });
 
   it("calls onChange with the selected category when the user picks one", async () => {
-    useCategoriesMock.mockReturnValue({
+    useCategories.mockReturnValue({
       data: ["electronics", "jewelery"],
       isPending: false,
       isError: false,
     });
-    const handleChange = vi.fn();
+    const handleChange = jest.fn();
     const user = userEvent.setup();
 
     render(<CategorySelect value="all" onChange={handleChange} />);
@@ -66,7 +62,7 @@ describe("CategorySelect", () => {
   });
 
   it("shows an error message when categories fail to load", () => {
-    useCategoriesMock.mockReturnValue({
+    useCategories.mockReturnValue({
       data: undefined,
       isPending: false,
       isError: true,
