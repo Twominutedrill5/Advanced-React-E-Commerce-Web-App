@@ -26,3 +26,6 @@ dist-ssr
 # Course materials — not part of the app source
 *.mp4
 *.pdf
+
+.vercel
+.env*
