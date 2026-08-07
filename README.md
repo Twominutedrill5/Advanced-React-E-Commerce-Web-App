@@ -1,5 +1,7 @@
 # Sundry — Firebase Edition
 
+Live demo: [Advanced React E-Commerce Web App](https://vercel.com/ecommerce-ae3d/advanced-react-e-commerce-web-app/HJA3RbFH5JxhXpm4F8pnDai2m4nj)
+
 An e-commerce front end backed entirely by Firebase. Users register and sign in with
 Firebase Authentication, the catalog lives in Firestore instead of a third-party API,
 and every order is written to the database and readable later as order history.
@@ -102,11 +104,11 @@ quietly rewrite people's receipts.
 
 State is split three ways, and that split is the architecture:
 
-| Concern | Owned by | Why |
-| --- | --- | --- |
-| Who's signed in | **AuthContext** | One `onAuthStateChanged` listener, one source of truth for the session |
-| Server data (products, orders, profile) | **React Query** | Caching, loading and error states, refetch-after-write |
-| The cart | **Redux Toolkit** | Local to this browser; nothing on the server knows it exists until checkout |
+| Concern                                 | Owned by          | Why                                                                         |
+| --------------------------------------- | ----------------- | --------------------------------------------------------------------------- |
+| Who's signed in                         | **AuthContext**   | One `onAuthStateChanged` listener, one source of truth for the session      |
+| Server data (products, orders, profile) | **React Query**   | Caching, loading and error states, refetch-after-write                      |
+| The cart                                | **Redux Toolkit** | Local to this browser; nothing on the server knows it exists until checkout |
 
 ### Authentication
 
@@ -192,16 +194,16 @@ src/
 
 ## Routes
 
-| Path | Access | What it does |
-| --- | --- | --- |
-| `/` | Public | Catalog with category filter |
-| `/cart` | Public | Cart; checkout requires sign-in |
-| `/login`, `/register` | Public | Firebase email/password auth |
-| `/profile` | Signed in | View, edit, delete account |
-| `/orders` | Signed in | Order history |
-| `/orders/:id` | Signed in | Full order detail |
-| `/products/new` | Signed in | Create a product |
-| `/products/:id/edit` | Signed in | Edit a product |
+| Path                  | Access    | What it does                    |
+| --------------------- | --------- | ------------------------------- |
+| `/`                   | Public    | Catalog with category filter    |
+| `/cart`               | Public    | Cart; checkout requires sign-in |
+| `/login`, `/register` | Public    | Firebase email/password auth    |
+| `/profile`            | Signed in | View, edit, delete account      |
+| `/orders`             | Signed in | Order history                   |
+| `/orders/:id`         | Signed in | Full order detail               |
+| `/products/new`       | Signed in | Create a product                |
+| `/products/:id/edit`  | Signed in | Edit a product                  |
 
 ## Troubleshooting
 

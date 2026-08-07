@@ -8,9 +8,6 @@ import cartReducer from "../../store/cartSlice";
 import ProductCard from "../../components/ProductCard";
 import Cart from "../Cart";
 
-// Cart.jsx talks to Firestore (checkout) and reads the logged-in user. Those
-// are external boundaries for this test — we only care that adding a product
-// updates what the Cart page renders, so they're mocked out.
 jest.mock("firebase/firestore", () => ({
   collection: jest.fn(),
   addDoc: jest.fn(),
