@@ -12,7 +12,6 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -49,8 +48,6 @@ jobs:
 
       - name: Check token access
         run: |
-          echo "org id length: ${#VERCEL_ORG_ID}"
-          echo "project id length: ${#VERCEL_PROJECT_ID}"
           vercel whoami --token=${{ secrets.VERCEL_TOKEN }}
           vercel teams ls --token=${{ secrets.VERCEL_TOKEN }}
           vercel project ls --token=${{ secrets.VERCEL_TOKEN }}
