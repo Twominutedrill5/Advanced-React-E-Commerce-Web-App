@@ -46,13 +46,12 @@ jobs:
 
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
+
       - name: Check secrets are present
         run: |
           echo "org id length: ${#VERCEL_ORG_ID}"
           echo "project id length: ${#VERCEL_PROJECT_ID}"
 
-      - name: Pull Vercel environment information
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
       - name: Pull Vercel environment information
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
