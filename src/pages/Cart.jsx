@@ -1,69 +1,53 @@
-import { useSelector, useDispatch } from "react-redux";
-import { Link } from "react-router-dom";
-import { useState } from "react";
-import { collection, addDoc } from "firebase/firestore";
-import ProductImage from "../components/ProductImage";
-import { db } from "../Library/Firebase/Firebase";
-import { useAuth } from "../context/useAuth";
+import { useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { Link, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import ProductImage from '../components/ProductImage';
+import { useAuth } from '../context/AuthContext';
+import { createOrder } from '../services/orders';
 import {
   selectCartItems,
   selectItemCount,
   selectCartTotal,
-  selectLastOrderTotal,
   increaseCount,
   decreaseCount,
   removeFromCart,
-  checkout,
-  dismissReceipt,
-} from "../store/cartSlice";
+  clearCart,
+} from '../store/cartSlice';
 
 export default function Cart() {
   const items = useSelector(selectCartItems);
   const itemCount = useSelector(selectItemCount);
   const total = useSelector(selectCartTotal);
-  const lastOrderTotal = useSelector(selectLastOrderTotal);
   const dispatch = useDispatch();
   const { user } = useAuth();
-  const [checkoutError, setCheckoutError] = useState("");
-  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const handleCheckout = async () => {
-    if (!user) {
-      setCheckoutError(
-        "Please log in before checking out so we can store your order history.",
-      );
-      return;
-    }
+  const [placing, setPlacing] = useState(false);
+  const [error, setError] = useState('');
 
-    if (items.length === 0 || isSubmittingOrder) {
-      return;
-    }
-
-    setIsSubmittingOrder(true);
-    setCheckoutError("");
-
+  // Checkout is now a real write. The order goes to Firestore first — only if
+  // that succeeds do we clear the cart, so a failed write never loses someone's
+  // basket.
+  async function handleCheckout() {
+    setError('');
+    setPlacing(true);
     try {
-      await addDoc(collection(db, "orders"), {
+      const orderId = await createOrder({
         userId: user.uid,
-        userEmail: user.email || null,
-        createdAtMs: Date.now(),
-        total,
-        items: items.map((item) => ({
-          id: item.id,
-          title: item.title,
-          category: item.category,
-          price: item.price,
-          count: item.count,
-          image: item.image || null,
-        })),
+        userEmail: user.email,
+        items,
       });
-      dispatch(checkout());
-    } catch (error) {
-      setCheckoutError(error?.message || "Could not place order.");
+      dispatch(clearCart());
+      queryClient.invalidateQueries({ queryKey: ['orders', user.uid] });
+      navigate(`/orders/${orderId}`, { state: { justPlaced: true } });
+    } catch (err) {
+      setError(err.message || 'The order could not be placed. Try again.');
     } finally {
-      setIsSubmittingOrder(false);
+      setPlacing(false);
     }
-  };
+  }
 
   return (
     <>
@@ -72,41 +56,13 @@ export default function Cart() {
         <h1>The cart.</h1>
       </section>
 
-      {/* Confirmation after a simulated checkout. */}
-      {lastOrderTotal !== null && (
-        <div className="receipt" role="status">
-          <p className="receipt__headline">Order placed.</p>
-          <p>
-            ${lastOrderTotal.toFixed(2)} order saved to Firebase. View it in
-            your order history.
-          </p>
-          <div className="receipt__actions">
-            <Link
-              to="/"
-              className="btn-ink"
-              onClick={() => dispatch(dismissReceipt())}
-            >
-              Keep browsing
-            </Link>
-            <Link
-              to="/orders"
-              className="btn-ink"
-              onClick={() => dispatch(dismissReceipt())}
-              style={{ marginTop: "8px" }}
-            >
-              View orders
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {items.length === 0 && lastOrderTotal === null && (
+      {items.length === 0 && (
         <div className="state-block">
           <p className="state-block__headline">Your cart is empty.</p>
           <p>
             <Link to="/" className="text-link">
               Head back to the catalog
-            </Link>{" "}
+            </Link>{' '}
             and add something.
           </p>
         </div>
@@ -118,25 +74,15 @@ export default function Cart() {
             {items.map((item) => (
               <li key={item.id} className="cart-line">
                 <div className="cart-line__frame">
-                  <ProductImage
-                    src={item.image}
-                    alt={item.title}
-                    className="cart-line__image"
-                  />
+                  <ProductImage src={item.image} alt={item.title} className="cart-line__image" />
                 </div>
 
                 <div className="cart-line__body">
                   <p className="cart-line__category">{item.category}</p>
                   <h2 className="cart-line__title">{item.title}</h2>
-                  <p className="cart-line__unit">
-                    ${item.price.toFixed(2)} each
-                  </p>
+                  <p className="cart-line__unit">${Number(item.price).toFixed(2)} each</p>
 
-                  <div
-                    className="counter"
-                    role="group"
-                    aria-label={`Quantity for ${item.title}`}
-                  >
+                  <div className="counter" role="group" aria-label={`Quantity for ${item.title}`}>
                     <button
                       type="button"
                       onClick={() => dispatch(decreaseCount(item.id))}
@@ -157,7 +103,7 @@ export default function Cart() {
 
                 <div className="cart-line__right">
                   <p className="cart-line__total">
-                    ${(item.price * item.count).toFixed(2)}
+                    ${(Number(item.price) * item.count).toFixed(2)}
                   </p>
                   <button
                     type="button"
@@ -188,21 +134,25 @@ export default function Cart() {
               </div>
             </dl>
 
-            <button
-              type="button"
-              className="btn-ink btn-ink--block"
-              onClick={handleCheckout}
-              disabled={isSubmittingOrder}
-            >
-              {isSubmittingOrder
-                ? "Placing order..."
-                : "Place order in Firebase"}
-            </button>
-            {checkoutError && <p className="field-note">{checkoutError}</p>}
-            <p className="field-note">
-              Orders are stored with user, products, created date, and total
-              price.
-            </p>
+            {error && <p className="form-error">{error}</p>}
+
+            {user ? (
+              <button
+                type="button"
+                className="btn-ink btn-ink--block"
+                onClick={handleCheckout}
+                disabled={placing}
+              >
+                {placing ? 'Placing order…' : 'Place order'}
+              </button>
+            ) : (
+              <>
+                <Link to="/login" state={{ from: '/cart' }} className="btn-ink btn-ink--block">
+                  Sign in to check out
+                </Link>
+                <p className="field-note">Orders are saved to your account, so you need one.</p>
+              </>
+            )}
           </aside>
         </div>
       )}

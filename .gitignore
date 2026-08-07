@@ -22,10 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-# Course materials — not part of the app source
-*.mp4
-*.pdf
-
-.vercel
-.env*
+-e 
+# Local environment
+.env
+.env.local

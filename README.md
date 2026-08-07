@@ -1,155 +1,217 @@
-# Sundry — Catalog & Cart
+# Sundry — Firebase Edition
 
-An e-commerce front end built on the [FakeStoreAPI](https://fakestoreapi.com/) catalog,
-with Firebase Authentication and Firestore for accounts, carts, and order history.
-Browse a live product catalog, filter it by section, sign in, build a cart that
-survives a page refresh, and check out to a real order record.
+An e-commerce front end backed entirely by Firebase. Users register and sign in with
+Firebase Authentication, the catalog lives in Firestore instead of a third-party API,
+and every order is written to the database and readable later as order history.
 
-**Live demo:** [https://advanced-react-e-commerce-web-app-vert.vercel.app/](https://advanced-react-e-commerce-web-app-vert.vercel.app/)
+**Stack:** React 19 · Vite · Firebase Auth · Cloud Firestore · React Query · Redux Toolkit · React Router
 
-**Stack:** React 19 · Vite · React Query (TanStack Query) · Redux Toolkit · React Router · Firebase (Auth + Firestore) · Jest + React Testing Library
+This is the third version of the Sundry storefront. The previous one read products from
+FakeStoreAPI and simulated checkout by emptying the cart; here the products are ours and
+checkout is a real write.
 
 ---
 
-## Run it
+## Setup
+
+### 1. Create the Firebase project
+
+In the [Firebase console](https://console.firebase.google.com/):
+
+1. **Add project** → name it → finish. (Analytics is optional; skip it.)
+2. On the project overview, click the **web icon (`</>`)** to register a web app. Give it a
+   nickname; you don't need Firebase Hosting.
+3. Copy the `firebaseConfig` values it shows you — that's the next step.
+4. **Build → Authentication → Get started → Email/Password → Enable → Save.**
+5. **Build → Firestore Database → Create database.** Pick a region and start in
+   **production mode**; step 3 below replaces the rules anyway.
+
+### 2. Add your config
+
+```bash
+cp .env.example .env.local
+```
+
+Fill in the six `VITE_FIREBASE_*` values from step 1.3. `.env.local` is git-ignored, so your
+keys never reach the repository — which is why nothing is hard coded in `src/firebase.js`.
+
+> These keys are not secrets in the usual sense; Firebase web config is visible to anyone
+> using the app. What actually protects your data is the security rules below.
+
+### 3. Publish the security rules
+
+Open `firestore.rules` in this repo, paste the contents into
+**Firestore Database → Rules**, and click **Publish**. They enforce three things: a user can
+only touch their own profile, products are public to read but signed-in to write, and an
+order can only be read by the account that placed it.
+
+### 4. Install and seed
 
 ```bash
 npm install
 npm run dev
 ```
 
-Then open the `http://localhost:5173/` address that Vite prints **in your browser**
-(leave the terminal running — the dev server has to stay up).
-
-To produce a production build:
+Register an account in the app first (the seed script signs in as that account to satisfy
+the rules), add its email and password to `.env.local` as `SEED_EMAIL` / `SEED_PASSWORD`,
+then:
 
 ```bash
-npm run build
-npm run preview
+npm run seed
 ```
+
+That pulls the FakeStoreAPI catalog once and batch-writes it into `products`. Re-running
+is safe — it refuses to duplicate unless you pass `--replace`.
+
+### 5. Create the orders index
+
+The first time you open **Order history**, Firestore will reject the query and log an error
+containing a long console URL. That's expected: filtering by `userId` while sorting by
+`createdAt` needs a composite index, and Firestore won't guess one. Click the link in the
+console, click **Create index**, wait about a minute, and reload. It's a one-time step.
+
+---
+
+## Data model
+
+```
+users/{uid}              ← document ID is the Firebase Auth UID
+  email, name, address, createdAt, updatedAt
+
+products/{autoId}
+  title, price, category, description, image, rating{rate,count}, createdAt
+
+orders/{autoId}
+  userId, userEmail, itemCount, total, createdAt
+  items[]  ← { productId, title, price, image, category, count }
+```
+
+Two decisions worth knowing about:
+
+**User documents are keyed by Auth UID.** There's no lookup step anywhere in the app — if
+you're signed in, you already know your document path.
+
+**Orders store copies, not references.** Each line item carries the title and price as they
+were at checkout. If a product's price changes next week, or the product is deleted
+entirely, past orders still show what was actually bought. Storing product references would
+quietly rewrite people's receipts.
 
 ---
 
 ## How it's put together
 
-The app splits state into two halves, and that split is the whole architecture:
+State is split three ways, and that split is the architecture:
 
-| Concern              | Owned by          | Why                                                                                          |
-| -------------------- | ----------------- | -------------------------------------------------------------------------------------------- |
-| Products, categories | **React Query**   | Data that lives on a server. Fetching, caching, loading and error states are handled for us. |
-| Shopping cart        | **Redux Toolkit** | Data that belongs to this user in this session. Nothing on the server knows about it.        |
+| Concern | Owned by | Why |
+| --- | --- | --- |
+| Who's signed in | **AuthContext** | One `onAuthStateChanged` listener, one source of truth for the session |
+| Server data (products, orders, profile) | **React Query** | Caching, loading and error states, refetch-after-write |
+| The cart | **Redux Toolkit** | Local to this browser; nothing on the server knows it exists until checkout |
 
-### Data fetching — React Query
+### Authentication
 
-`src/hooks/useCatalog.js` wraps three endpoints:
+`src/context/AuthContext.jsx` wraps the Firebase auth listener. It exposes `user`, plus
+`register`, `login`, and `logout`.
 
-- `GET /products` — the full catalog
-- `GET /products/categories` — the list that fills the dropdown
-- `GET /products/category/{category}` — a filtered listing
+Registration does two things, because Auth and Firestore are separate systems: it creates
+the Auth account, then writes the matching `users/{uid}` document. Creating the account
+alone would leave a user who can log in but has no profile.
 
-`useProducts(category)` uses the selected category as part of its **query key**, so
-each section is cached separately. Switching back to a category you've already viewed
-renders instantly from cache instead of hitting the network again.
+`checking` matters more than it looks. Firebase restores a session asynchronously, so on
+first paint the app genuinely doesn't know whether anyone is signed in. `ProtectedRoute`
+waits for that instead of redirecting on a guess — otherwise refreshing on `/orders` would
+bounce a signed-in user to the login page every time.
 
-The dropdown is not hard coded. Its options are rendered from the categories
-response, so if FakeStoreAPI adds a section, it appears here with no code change.
+### Product CRUD
 
-### Cart state — Redux Toolkit
+`src/services/products.js` holds the Firestore calls; `src/hooks/useStore.js` wraps them in
+React Query. Every mutation invalidates the `products` key on success, so the grid reflects
+a create, edit, or delete without a manual refresh.
 
-`src/store/cartSlice.js` holds the cart as an **array of product objects**, each with
-a `count` added to it. Actions:
+Create and edit share one component (`ProductForm`). The presence of an `:id` in the URL is
+the only difference between them, so there's no second near-identical form to keep in sync.
 
-| Action                                    | Effect                                                         |
-| ----------------------------------------- | -------------------------------------------------------------- |
-| `addToCart(product)`                      | Adds the product, or bumps `count` if it's already in the cart |
-| `increaseCount(id)` / `decreaseCount(id)` | Adjusts quantity; dropping below one removes the line          |
-| `removeFromCart(id)`                      | Removes a line outright                                        |
-| `checkout()`                              | Records the order total, then empties the cart                 |
+The category dropdown is derived from the products already in memory rather than a second
+query — Firestore has no `DISTINCT`, and it bills per document read. Add a product in a new
+category and the option appears on its own.
 
-Totals are derived with selectors (`selectItemCount`, `selectCartTotal`) rather than
-stored, so they can never drift out of sync with the items.
+### Orders
 
-### Persistence — sessionStorage
+Checkout writes to Firestore **first**, and only clears the cart if that write succeeds. A
+network failure mid-checkout leaves the basket intact instead of silently emptying it.
 
-The cart is mirrored into `sessionStorage` by a subscriber in `src/store/store.js`.
-Every time the store changes, the current items array is written out; when the cart
-empties, the key is removed. On startup the slice reads that key back as its initial
-state.
+Order history lists each order's ID, date and total; clicking through shows the full line
+items. Both reads are scoped by `userId`, and the security rules enforce that server-side —
+so the scoping isn't just a UI convention.
 
-Keeping the write in a subscriber instead of inside the reducers means the reducers
-stay pure — Redux remains the single source of truth, and storage is just a copy of it.
+### Account deletion
 
-### Checkout
+Deleting an account removes the Firestore document first, then the Auth record. If the
+second step fails you're left with an orphaned login rather than orphaned personal data,
+which is the better failure.
 
-FakeStoreAPI has no order endpoint, so checkout is simulated: it clears Redux state
-and sessionStorage, then shows a confirmation with the amount that would have been
-charged.
-
-### Broken product images
-
-Several FakeStoreAPI image URLs now return 404 on the API's side. `ProductImage`
-catches the image's `onError` and swaps in an inline SVG placeholder, so the grid
-stays even instead of showing broken-image icons. The placeholder is drawn inline
-rather than pulled from a placeholder service, so it can't fail to load either.
+Firebase refuses to delete an account on a stale session, so the profile page catches
+`auth/requires-recent-login` and tells the user to sign in again rather than showing a raw
+SDK error.
 
 ---
 
 ## Project structure
 
 ```
+scripts/seedProducts.mjs    One-off: FakeStoreAPI → Firestore
+firestore.rules             Security rules to paste into the console
 src/
-├── api/fakestore.js        Fetch functions for the three endpoints
-├── hooks/useCatalog.js     React Query hooks (useProducts, useCategories)
-├── store/
-│   ├── store.js            Store config + sessionStorage subscriber
-│   ├── cartSlice.js        Cart reducers, actions, selectors
-│   └── cartStorage.js      sessionStorage read/write helpers
+├── firebase.js             SDK init from environment variables
+├── context/AuthContext.jsx Session state and auth actions
+├── services/               Firestore calls, one file per collection
+│   ├── users.js
+│   ├── products.js
+│   └── orders.js
+├── hooks/useStore.js       React Query wrappers around the services
+├── store/                  Redux cart + sessionStorage mirror
 ├── components/
-│   ├── ProductCard.jsx     One product + add-to-cart
-│   ├── CategorySelect.jsx  Dynamic category dropdown
-│   └── ProductImage.jsx    Image with placeholder fallback
+│   ├── ProductCard.jsx     Product + add-to-cart + admin controls
+│   ├── CategorySelect.jsx  Dropdown built from loaded products
+│   ├── ProductImage.jsx    Image with placeholder fallback
+│   ├── ConfirmDialog.jsx   Confirmation before destructive writes
+│   └── ProtectedRoute.jsx  Session-aware route guard
 ├── pages/
-│   ├── Home.jsx            Catalog listing + filter
-│   └── Cart.jsx            Cart lines, totals, checkout
-├── App.jsx                 Masthead, nav, routes
-└── main.jsx                Redux + React Query + Router providers
+│   ├── Home.jsx            Catalog, filter, delete
+│   ├── ProductForm.jsx     Create and edit
+│   ├── Cart.jsx            Cart lines, totals, order placement
+│   ├── Orders.jsx          Order history
+│   ├── OrderDetail.jsx     One order in full
+│   ├── Profile.jsx         Read, update, delete account
+│   ├── Login.jsx
+│   └── Register.jsx
+├── utils/format.js         Firestore timestamp formatting
+├── App.jsx                 Masthead and routes
+└── main.jsx                Providers
 ```
 
-## Features
+## Routes
 
-- Full product listing with title, price, category, description, rating and image
-- Category dropdown populated from the API
-- Add to cart from the listing page
-- Cart with per-line quantity controls and removal
-- Live totals: number of products and order total
-- Cart persists across refreshes via sessionStorage
-- Simulated checkout with confirmation
-- Loading, error and empty states on every view
-- Responsive down to mobile, keyboard focus styles, reduced-motion support
-- Firebase Authentication (login/register/logout), with nav and product management gated to signed-in users
-- Orders written to Firestore on checkout and viewable on the Orders page
+| Path | Access | What it does |
+| --- | --- | --- |
+| `/` | Public | Catalog with category filter |
+| `/cart` | Public | Cart; checkout requires sign-in |
+| `/login`, `/register` | Public | Firebase email/password auth |
+| `/profile` | Signed in | View, edit, delete account |
+| `/orders` | Signed in | Order history |
+| `/orders/:id` | Signed in | Full order detail |
+| `/products/new` | Signed in | Create a product |
+| `/products/:id/edit` | Signed in | Edit a product |
 
----
+## Troubleshooting
 
-## Testing
+**"Firebase config is missing"** — `.env.local` doesn't exist or is empty. Vite only reads
+env files at startup, so restart the dev server after creating it.
 
-Unit and integration tests are written with [Jest](https://jestjs.io/) and
-[React Testing Library](https://testing-library.com/react):
+**"Missing or insufficient permissions"** — the rules in `firestore.rules` haven't been
+published, or you're signed out. Check the Rules tab in the console.
 
-```bash
-npm test          # single run (used in CI)
-npm run test:watch  # watch mode
-```
+**Order history throws an index error** — expected on first run. See setup step 5.
 
-- `src/components/__tests__/ProductCard.test.jsx` — unit tests for rendering and add-to-cart
-- `src/components/__tests__/CategorySelect.test.jsx` — unit tests for loading/error states and selection
-- `src/pages/__tests__/Cart.integration.test.jsx` — integration test verifying the Cart page updates when a product is added
-
-## CI/CD
-
-`.github/workflows/main.yml` defines a single pipeline:
-
-1. **Build & Test** — installs dependencies, runs the test suite, and builds the app on every push/PR to `main`.
-2. **Deploy** — if the build/test job succeeds and the push was to `main`, deploys the built app to Vercel.
-
-The deploy job requires `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` secrets configured in the GitHub repo settings.
+**`auth/operation-not-allowed` on register** — Email/Password isn't enabled under
+Authentication → Sign-in method.

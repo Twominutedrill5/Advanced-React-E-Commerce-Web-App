@@ -1,66 +1,65 @@
-import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../Library/Firebase/Firebase";
-import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../context/useAuth";
-import {
-  createDemoUser,
-  isAuthProviderDisabled,
-  saveDemoUser,
-  toAuthMessage,
-} from "../utils/authFallback";
+import { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  const location = useLocation();
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
+  const set = (field) => (event) => setForm({ ...form, [field]: event.target.value });
 
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setError('');
+    setBusy(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      setError("");
-      navigate("/");
-    } catch (err) {
-      if (isAuthProviderDisabled(err)) {
-        const demoUser = createDemoUser(email);
-        saveDemoUser(demoUser);
-        setUser(demoUser);
-        setError(
-          "Firebase email/password login is disabled, so a local demo account was used.",
-        );
-        navigate("/");
-        return;
-      }
-
-      setError(toAuthMessage(err, "log in"));
+      await login(form);
+      // Send them back to whatever page sent them here, or home.
+      navigate(location.state?.from || '/');
+    } catch {
+      // Firebase deliberately returns the same code for a wrong password and a
+      // nonexistent account, so the message stays general on purpose.
+      setError('That email and password don\u2019t match an account.');
+    } finally {
+      setBusy(false);
     }
-  };
+  }
 
   return (
-    <div className="auth-form">
-      <h2>Login</h2>
-      {error && <p className="error">{error}</p>}
-      <form onSubmit={handleLogin}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button type="submit">Login</button>
+    <div className="form-page">
+      <p className="eyebrow">Returning</p>
+      <h1>Sign in.</h1>
+
+      <form onSubmit={handleSubmit} className="stack-form">
+        <label className="field">
+          <span>Email</span>
+          <input type="email" value={form.email} onChange={set('email')} required autoComplete="email" />
+        </label>
+
+        <label className="field">
+          <span>Password</span>
+          <input
+            type="password"
+            value={form.password}
+            onChange={set('password')}
+            required
+            autoComplete="current-password"
+          />
+        </label>
+
+        {error && <p className="form-error">{error}</p>}
+
+        <button type="submit" className="btn-ink btn-ink--block" disabled={busy}>
+          {busy ? 'Signing in…' : 'Sign in'}
+        </button>
       </form>
-      <p>
-        Don't have an account? <Link to="/register">Register here</Link>
+
+      <p className="field-note">
+        No account yet? <Link to="/register" className="text-link">Register</Link>.
       </p>
     </div>
   );

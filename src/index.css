@@ -14,9 +14,9 @@
   --crimson: #c8102e;
   --rule: rgba(20, 17, 15, 0.16);
 
-  --display: "Archivo Black", "Arial Black", sans-serif;
-  --body: "Work Sans", -apple-system, "Segoe UI", sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, "Courier New", monospace;
+  --display: 'Archivo Black', 'Arial Black', sans-serif;
+  --body: 'Work Sans', -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
 
   --measure: 1180px;
 }
@@ -180,15 +180,10 @@ body {
   border-radius: 0;
   padding: 11px 44px 11px 14px;
   text-transform: capitalize;
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--ink) 50%),
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%),
     linear-gradient(135deg, var(--ink) 50%, transparent 50%);
-  background-position:
-    calc(100% - 21px) 22px,
-    calc(100% - 15px) 22px;
-  background-size:
-    6px 6px,
-    6px 6px;
+  background-position: calc(100% - 21px) 22px, calc(100% - 15px) 22px;
+  background-size: 6px 6px, 6px 6px;
   background-repeat: no-repeat;
 }
 
@@ -219,34 +214,18 @@ body {
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  align-items: stretch;
-  gap: 26px 20px;
+  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  gap: 34px 28px;
   padding: 40px 0 72px;
-}
-
-.product-grid__cell {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.product-grid__actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 8px;
 }
 
 .product-card {
   display: flex;
-  flex: 1;
   flex-direction: column;
   background: var(--paper-raised);
   border: 2px solid var(--ink);
-  padding: 14px;
-  transition:
-    transform 0.16s ease,
-    box-shadow 0.16s ease;
+  padding: 18px;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
 .product-card:hover {
@@ -259,9 +238,9 @@ body {
   aspect-ratio: 1;
   display: grid;
   place-items: center;
-  padding: 10px;
+  padding: 14px;
   border-bottom: 1px solid var(--rule);
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .product-card__image {
@@ -281,24 +260,19 @@ body {
 
 .product-card__title {
   font-family: var(--display);
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.24;
   letter-spacing: -0.01em;
-  margin: 0 0 8px;
-  /* Clamp titles to two lines so cards with long vs. short names still match height. */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  margin: 0 0 10px;
 }
 
 .product-card__description {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink-soft);
-  margin: 0 0 12px;
+  margin: 0 0 16px;
   /* Descriptions vary wildly in length; clamp keeps the grid even. */
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -348,9 +322,7 @@ body {
   padding: 12px 18px;
   cursor: pointer;
   text-decoration: none;
-  transition:
-    background 0.14s ease,
-    color 0.14s ease;
+  transition: background 0.14s ease, color 0.14s ease;
 }
 
 .btn-ink:hover {
@@ -661,5 +633,299 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   Firebase-era additions: auth forms, admin controls,
+   order history, dialogs.
+   ============================================================ */
+
+.nav-button {
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0 0 2px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.nav-button:hover {
+  color: var(--crimson);
+  border-bottom-color: var(--crimson);
+}
+
+.controls__right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+/* ---------- Forms ---------- */
+
+.form-page {
+  max-width: 420px;
+  padding: 56px 0 80px;
+}
+
+.form-page--wide {
+  max-width: 620px;
+}
+
+.form-page h1 {
+  font-family: var(--display);
+  font-size: clamp(30px, 4.5vw, 42px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 12px 0 28px;
+}
+
+.stack-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.field > span {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-soft);
+}
+
+.field input,
+.field textarea {
+  font-family: var(--body);
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  padding: 11px 13px;
+  width: 100%;
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.field input:disabled {
+  background: rgba(20, 17, 15, 0.05);
+  color: var(--ink-soft);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.form-error {
+  border-left: 3px solid var(--crimson);
+  padding-left: 12px;
+  font-size: 14px;
+  color: var(--crimson);
+  margin: 0;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.save-note {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--crimson);
+}
+
+.btn-ink--inline {
+  width: auto;
+  margin-top: 0;
+}
+
+.btn-ink--danger {
+  background: var(--crimson);
+  border-color: var(--crimson);
+}
+
+.btn-quiet {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  padding: 3px 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-quiet:hover {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.btn-quiet--danger:hover {
+  color: var(--crimson);
+  border-bottom-color: var(--crimson);
+}
+
+.card-admin {
+  display: flex;
+  gap: 18px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+
+.danger-zone {
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 2px solid var(--ink);
+}
+
+.eyebrow--muted {
+  color: var(--ink-soft);
+}
+
+/* ---------- Order history ---------- */
+
+.order-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 72px;
+  border-top: 2px solid var(--ink);
+}
+
+.order-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 24px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.order-row:hover {
+  background: var(--paper-raised);
+  box-shadow: -12px 0 0 var(--paper-raised), 12px 0 0 var(--paper-raised);
+}
+
+.order-row__id {
+  font-family: var(--mono);
+  font-size: 13px;
+  margin: 0 0 4px;
+}
+
+.order-row__date {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.order-row__count {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.order-row__total {
+  font-family: var(--mono);
+  font-size: 17px;
+  color: var(--crimson);
+  margin: 0;
+  min-width: 84px;
+  text-align: right;
+}
+
+.order-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 22px 0 12px;
+  border-bottom: 2px solid var(--ink);
+  font-family: var(--display);
+  font-size: 18px;
+}
+
+.order-total__value {
+  font-family: var(--mono);
+  font-size: 24px;
+  color: var(--crimson);
+}
+
+/* ---------- Dialog ---------- */
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 17, 15, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 50;
+}
+
+.dialog {
+  background: var(--paper-raised);
+  border: 2px solid var(--ink);
+  box-shadow: 10px 10px 0 var(--crimson);
+  padding: 26px;
+  max-width: 420px;
+  width: 100%;
+}
+
+.dialog__title {
+  font-family: var(--display);
+  font-size: 21px;
+  margin: 0 0 10px;
+}
+
+.dialog__body {
+  color: var(--ink-soft);
+  margin: 0 0 22px;
+  font-size: 14px;
+}
+
+.dialog__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+}
+
+.dialog__actions .btn-ink {
+  width: auto;
+  margin-top: 0;
+}
+
+@media (max-width: 560px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .order-row {
+    grid-template-columns: 1fr auto;
+    row-gap: 8px;
   }
 }

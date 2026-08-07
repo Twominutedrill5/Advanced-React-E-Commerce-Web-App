@@ -5,7 +5,6 @@ import { loadCart } from './cartStorage';
 // refresh or a jump between routes keeps the shopper's items.
 const initialState = {
   items: loadCart(),
-  lastOrderTotal: null, // set on checkout so the Cart page can confirm the order
 };
 
 const cartSlice = createSlice({
@@ -20,7 +19,6 @@ const cartSlice = createSlice({
       } else {
         state.items.push({ ...product, count: 1 });
       }
-      state.lastOrderTotal = null;
     },
 
     increaseCount(state, action) {
@@ -43,18 +41,10 @@ const cartSlice = createSlice({
       state.items = state.items.filter((entry) => entry.id !== action.payload);
     },
 
-    // Checkout is simulated: FakeStoreAPI has no order endpoint, so the
-    // "purchase" is the cart emptying. The total is kept for the receipt.
-    checkout(state) {
-      state.lastOrderTotal = state.items.reduce(
-        (sum, item) => sum + item.price * item.count,
-        0,
-      );
+    // Called after the order has been written to Firestore, not before —
+    // the Cart page owns that ordering so a failed write keeps the basket.
+    clearCart(state) {
       state.items = [];
-    },
-
-    dismissReceipt(state) {
-      state.lastOrderTotal = null;
     },
   },
 });
@@ -64,8 +54,7 @@ export const {
   increaseCount,
   decreaseCount,
   removeFromCart,
-  checkout,
-  dismissReceipt,
+  clearCart,
 } = cartSlice.actions;
 
 // Selectors keep the totals in one place instead of recalculating in components.
@@ -76,7 +65,5 @@ export const selectItemCount = (state) =>
 
 export const selectCartTotal = (state) =>
   state.cart.items.reduce((total, item) => total + item.price * item.count, 0);
-
-export const selectLastOrderTotal = (state) => state.cart.lastOrderTotal;
 
 export default cartSlice.reducer;

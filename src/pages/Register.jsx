@@ -1,81 +1,82 @@
-import { useState } from "react";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { auth } from "../Library/Firebase/Firebase";
-import { db } from "../Library/Firebase/Firebase";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/useAuth";
-import {
-  createDemoUser,
-  isAuthProviderDisabled,
-  saveDemoUser,
-  toAuthMessage,
-} from "../utils/authFallback";
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+// Firebase returns machine-readable error codes. Translating them keeps the
+// form honest about what went wrong instead of leaking SDK internals.
+const MESSAGES = {
+  'auth/email-already-in-use': 'That email already has an account. Sign in instead.',
+  'auth/invalid-email': 'That email address isn\u2019t valid.',
+  'auth/weak-password': 'Passwords need to be at least 6 characters.',
+};
 
 export default function Register() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const { register } = useAuth();
   const navigate = useNavigate();
-  const { setUser } = useAuth();
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
+  const set = (field) => (event) => setForm({ ...form, [field]: event.target.value });
 
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setError('');
+    setBusy(true);
     try {
-      const credential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password,
-      );
-      await setDoc(
-        doc(db, "users", credential.user.uid),
-        {
-          email: credential.user.email,
-          name: "",
-          address: "",
-          role: "user",
-          createdAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-      setError("");
-      navigate("/");
+      await register(form);
+      navigate('/');
     } catch (err) {
-      if (isAuthProviderDisabled(err)) {
-        const demoUser = createDemoUser(email);
-        saveDemoUser(demoUser);
-        setUser(demoUser);
-        setError(
-          "Firebase email/password signup is disabled, so a local demo account was used.",
-        );
-        navigate("/");
-        return;
-      }
-
-      setError(toAuthMessage(err, "register"));
+      setError(MESSAGES[err.code] || 'Registration failed. Try again.');
+    } finally {
+      setBusy(false);
     }
-  };
+  }
 
   return (
-    <div className="auth-form">
-      <h2>Register</h2>
-      {error && <p className="error">{error}</p>}
-      <form onSubmit={handleRegister}>
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button type="submit">Register</button>
+    <div className="form-page">
+      <p className="eyebrow">New account</p>
+      <h1>Open an account.</h1>
+
+      <form onSubmit={handleSubmit} className="stack-form">
+        <label className="field">
+          <span>Name</span>
+          <input type="text" value={form.name} onChange={set('name')} autoComplete="name" />
+        </label>
+
+        <label className="field">
+          <span>Email</span>
+          <input
+            type="email"
+            value={form.email}
+            onChange={set('email')}
+            required
+            autoComplete="email"
+          />
+        </label>
+
+        <label className="field">
+          <span>Password</span>
+          <input
+            type="password"
+            value={form.password}
+            onChange={set('password')}
+            required
+            minLength={6}
+            autoComplete="new-password"
+          />
+        </label>
+
+        {error && <p className="form-error">{error}</p>}
+
+        <button type="submit" className="btn-ink btn-ink--block" disabled={busy}>
+          {busy ? 'Creating account…' : 'Create account'}
+        </button>
       </form>
+
+      <p className="field-note">
+        Already have one? <Link to="/login" className="text-link">Sign in</Link>.
+      </p>
     </div>
   );
 }

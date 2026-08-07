@@ -1,172 +1,139 @@
-import { useAuth } from "../context/useAuth";
-import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { deleteUser as deleteAuthUser } from "firebase/auth";
-import {
-  deleteDoc,
-  doc,
-  getDoc,
-  serverTimestamp,
-  setDoc,
-} from "firebase/firestore";
-import { auth, db } from "../Library/Firebase/Firebase";
-import { clearDemoUser } from "../utils/authFallback";
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { deleteUser } from 'firebase/auth';
+import { useAuth } from '../context/AuthContext';
+import { useProfile, useUpdateProfile } from '../hooks/useStore';
+import { deleteUserDoc } from '../services/users';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function Profile() {
-  const { user, setUser } = useAuth();
+  const { user, logout } = useAuth();
+  const { data: profile, isPending, isError, error } = useProfile(user?.uid);
+  const updateProfile = useUpdateProfile(user?.uid);
   const navigate = useNavigate();
-  const [profile, setProfile] = useState({ name: "", address: "", email: "" });
-  const [status, setStatus] = useState("");
-  const [error, setError] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+
+  const [form, setForm] = useState({ name: '', address: '' });
+  const [saved, setSaved] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
-    if (!user) {
-      navigate("/login");
-      return;
+    if (profile) {
+      setForm({ name: profile.name ?? '', address: profile.address ?? '' });
     }
+  }, [profile]);
 
-    const fetchProfile = async () => {
-      if (user.isDemo) {
-        setProfile({ name: "Demo user", address: "", email: user.email || "" });
-        return;
-      }
-
-      const userDoc = doc(db, "users", user.uid);
-      const snapshot = await getDoc(userDoc);
-
-      if (!snapshot.exists()) {
-        await setDoc(
-          userDoc,
-          {
-            email: user.email,
-            name: "",
-            address: "",
-            role: "user",
-            createdAt: serverTimestamp(),
-          },
-          { merge: true },
-        );
-      }
-
-      const data = snapshot.data() || {};
-      setProfile({
-        name: data.name || "",
-        address: data.address || "",
-        email: data.email || user.email || "",
-      });
-    };
-
-    fetchProfile().catch((fetchError) => {
-      setError(fetchError?.message || "Could not load profile data.");
-    });
-  }, [user, navigate]);
-
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setProfile((current) => ({ ...current, [name]: value }));
+  const set = (field) => (event) => {
+    setForm({ ...form, [field]: event.target.value });
+    setSaved(false);
   };
 
-  const saveProfile = async (event) => {
+  async function handleSave(event) {
     event.preventDefault();
-    if (!user) {
-      return;
-    }
+    await updateProfile.mutateAsync(form);
+    setSaved(true);
+  }
 
-    if (user.isDemo) {
-      setStatus(
-        "Demo user profile can be edited only after enabling Firebase email/password auth.",
-      );
-      return;
-    }
-
-    setIsSaving(true);
-    setStatus("");
-    setError("");
-
+  // Deleting an account is two removals: the Firestore document and the Auth
+  // record. The document goes first — if the Auth deletion fails, we'd rather
+  // have an orphaned login than orphaned personal data.
+  async function handleDelete() {
+    setDeleteError('');
     try {
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          ...profile,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-      setStatus("Profile saved.");
-    } catch (saveError) {
-      setError(saveError?.message || "Could not save profile.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const deleteAccount = async () => {
-    if (!user) {
-      return;
-    }
-
-    setError("");
-    setStatus("");
-
-    if (user.isDemo) {
-      clearDemoUser();
-      setUser(null);
-      navigate("/");
-      return;
-    }
-
-    try {
-      await deleteDoc(doc(db, "users", user.uid));
-      if (auth.currentUser) {
-        await deleteAuthUser(auth.currentUser);
+      await deleteUserDoc(user.uid);
+      await deleteUser(user);
+      navigate('/');
+    } catch (err) {
+      if (err.code === 'auth/requires-recent-login') {
+        // Firebase requires a fresh session for destructive account changes.
+        setDeleteError(
+          'For security, Firebase needs a recent sign-in before deleting an account. ' +
+            'Sign out, sign back in, and try again.',
+        );
+      } else {
+        setDeleteError(err.message || 'The account could not be deleted.');
       }
-      setUser(null);
-      navigate("/");
-    } catch (deleteError) {
-      setError(deleteError?.message || "Could not delete account.");
+      setConfirmingDelete(false);
     }
-  };
+  }
 
-  if (!user) {
-    return <p>Loading...</p>;
+  if (isPending) {
+    return (
+      <div className="state-block">
+        <span className="spinner" aria-hidden="true" />
+        <p>Loading your profile…</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="state-block state-block--error">
+        <p className="state-block__headline">Profile didn&apos;t load.</p>
+        <p>{error.message}</p>
+      </div>
+    );
   }
 
   return (
-    <div className="profile">
-      <h2>Profile</h2>
-      <p>Email: {profile.email || user.email}</p>
-      <p>User ID: {user.uid}</p>
-      <form onSubmit={saveProfile}>
-        <input
-          name="name"
-          value={profile.name}
-          onChange={handleChange}
-          placeholder="Name"
-        />
-        <input
-          name="address"
-          value={profile.address}
-          onChange={handleChange}
-          placeholder="Address"
-        />
-        <button type="submit" disabled={isSaving}>
-          {isSaving ? "Saving..." : "Save profile"}
-        </button>
+    <div className="form-page form-page--wide">
+      <p className="eyebrow">Account</p>
+      <h1>Your profile.</h1>
+
+      <form onSubmit={handleSave} className="stack-form">
+        <label className="field">
+          <span>Email</span>
+          <input type="email" value={profile?.email ?? user.email} disabled />
+          <small className="field-note">Email is managed by Firebase Authentication.</small>
+        </label>
+
+        <label className="field">
+          <span>Name</span>
+          <input type="text" value={form.name} onChange={set('name')} autoComplete="name" />
+        </label>
+
+        <label className="field">
+          <span>Address</span>
+          <textarea rows={3} value={form.address} onChange={set('address')} autoComplete="street-address" />
+        </label>
+
+        <div className="form-actions">
+          <button type="submit" className="btn-ink" disabled={updateProfile.isPending}>
+            {updateProfile.isPending ? 'Saving…' : 'Save changes'}
+          </button>
+          {saved && <span className="save-note">Saved</span>}
+        </div>
       </form>
-      {status && <p>{status}</p>}
-      {error && <p className="error">{error}</p>}
-      <button
-        type="button"
-        onClick={deleteAccount}
-        style={{
-          backgroundColor: "crimson",
-          color: "white",
-          marginTop: "12px",
-        }}
-      >
-        Delete account
-      </button>
+
+      <section className="danger-zone">
+        <p className="eyebrow eyebrow--muted">Closing your account</p>
+        <p className="field-note">
+          Deleting removes your profile from Firestore and your login from Firebase
+          Authentication. Past orders stay in the orders collection.
+        </p>
+        {deleteError && <p className="form-error">{deleteError}</p>}
+        <div className="form-actions">
+          <button type="button" className="btn-quiet" onClick={() => logout().then(() => navigate('/'))}>
+            Sign out
+          </button>
+          <button
+            type="button"
+            className="btn-quiet btn-quiet--danger"
+            onClick={() => setConfirmingDelete(true)}
+          >
+            Delete account
+          </button>
+        </div>
+      </section>
+
+      <ConfirmDialog
+        open={confirmingDelete}
+        title="Delete your account?"
+        body="Your profile and login will be removed. This can't be undone."
+        confirmLabel="Delete account"
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmingDelete(false)}
+      />
     </div>
   );
 }

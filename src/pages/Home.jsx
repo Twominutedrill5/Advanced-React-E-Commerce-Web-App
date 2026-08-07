@@ -1,162 +1,32 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import CategorySelect from "../components/CategorySelect";
-import ProductCard from "../components/ProductCard";
-import { useAuth } from "../context/useAuth";
-import {
-  useProducts,
-  useCategories,
-  ALL_CATEGORIES,
-  createProduct,
-  updateProduct,
-  deleteProduct,
-  seedProductsFromFakeStore,
-} from "../hooks/useCatalog";
-
-const EMPTY_PRODUCT_FORM = {
-  title: "",
-  price: "",
-  category: "",
-  image: "",
-  description: "",
-};
+import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import CategorySelect, { ALL_CATEGORIES } from '../components/CategorySelect';
+import ProductCard from '../components/ProductCard';
+import ConfirmDialog from '../components/ConfirmDialog';
+import { useProducts, useDeleteProduct } from '../hooks/useStore';
+import { deriveCategories } from '../services/products';
+import { useAuth } from '../context/AuthContext';
 
 export default function Home() {
-  const { role } = useAuth();
-  const isAdmin = role === "admin";
   const [category, setCategory] = useState(ALL_CATEGORIES);
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState(EMPTY_PRODUCT_FORM);
-  const [manageError, setManageError] = useState("");
-  const [isManageOpen, setIsManageOpen] = useState(false);
-  const queryClient = useQueryClient();
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const { user } = useAuth();
+  const { data: products, isPending, isError, error } = useProducts();
+  const removeProduct = useDeleteProduct();
 
-  const {
-    data: products,
-    isPending,
-    isError,
-    error,
-    isFetching,
-  } = useProducts(category);
-  const { data: categories = [] } = useCategories();
+  const categories = useMemo(() => deriveCategories(products || []), [products]);
 
-  const createMutation = useMutation({
-    mutationFn: createProduct,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["products"] });
-      await queryClient.invalidateQueries({ queryKey: ["categories"] });
-      setForm(EMPTY_PRODUCT_FORM);
-      setManageError("");
-    },
-    onError: (mutationError) => {
-      setManageError(mutationError?.message || "Could not create product.");
-    },
-  });
+  const visible = useMemo(() => {
+    if (!products) return [];
+    return category === ALL_CATEGORIES
+      ? products
+      : products.filter((product) => product.category === category);
+  }, [products, category]);
 
-  const updateMutation = useMutation({
-    mutationFn: ({ productId, updates }) => updateProduct(productId, updates),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["products"] });
-      await queryClient.invalidateQueries({ queryKey: ["categories"] });
-      setEditingId(null);
-      setForm(EMPTY_PRODUCT_FORM);
-      setManageError("");
-    },
-    onError: (mutationError) => {
-      setManageError(mutationError?.message || "Could not update product.");
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: deleteProduct,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["products"] });
-      await queryClient.invalidateQueries({ queryKey: ["categories"] });
-    },
-    onError: (mutationError) => {
-      setManageError(mutationError?.message || "Could not delete product.");
-    },
-  });
-
-  const seedMutation = useMutation({
-    mutationFn: seedProductsFromFakeStore,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["products"] });
-      await queryClient.invalidateQueries({ queryKey: ["categories"] });
-      setManageError("");
-    },
-    onError: (mutationError) => {
-      setManageError(
-        mutationError?.message || "Could not load starter catalog.",
-      );
-    },
-  });
-
-  const isMutating =
-    createMutation.isPending ||
-    updateMutation.isPending ||
-    deleteMutation.isPending ||
-    seedMutation.isPending;
-
-  const handleFieldChange = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    if (!form.title || !form.price || !form.category || !form.description) {
-      setManageError("Title, price, category, and description are required.");
-      return;
-    }
-
-    const payload = {
-      title: form.title.trim(),
-      price: Number(form.price),
-      category: form.category.trim(),
-      image:
-        form.image.trim() || "https://via.placeholder.com/320x320?text=Product",
-      description: form.description.trim(),
-      rating: {
-        rate: 0,
-        count: 0,
-      },
-    };
-
-    if (editingId) {
-      await updateMutation.mutateAsync({
-        productId: editingId,
-        updates: payload,
-      });
-      return;
-    }
-
-    await createMutation.mutateAsync(payload);
-  };
-
-  const beginEdit = (product) => {
-    setEditingId(product.id);
-    setForm({
-      title: product.title || "",
-      price: String(product.price ?? ""),
-      category: product.category || "",
-      image: product.image || "",
-      description: product.description || "",
-    });
-    setManageError("");
-    setIsManageOpen(true);
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setForm(EMPTY_PRODUCT_FORM);
-    setManageError("");
-  };
-
-  const handleDelete = async (productId) => {
-    await deleteMutation.mutateAsync(productId);
-  };
+  async function confirmDelete() {
+    await removeProduct.mutateAsync(pendingDelete.id);
+    setPendingDelete(null);
+  }
 
   return (
     <>
@@ -164,21 +34,31 @@ export default function Home() {
         <p className="eyebrow">The Sundry Catalog</p>
         <h1>Everything worth keeping, in one issue.</h1>
         <p className="lede">
-          Clothing, jewelry, and electronics, now backed by Firestore. Pick a
-          section, then add anything you want to your cart.
+          A live catalog backed by Firestore. Pick a section, add anything to your cart,
+          and sign in to manage the listings yourself.
         </p>
       </section>
 
       <section className="controls">
-        <CategorySelect value={category} onChange={setCategory} />
-        {!isPending && !isError && (
-          <p className="result-count">
-            {products.length} {products.length === 1 ? "item" : "items"}
-            {isFetching && (
-              <span className="result-count__updating"> · updating</span>
-            )}
-          </p>
-        )}
+        <CategorySelect
+          categories={categories}
+          value={category}
+          onChange={setCategory}
+          disabled={isPending || isError}
+        />
+
+        <div className="controls__right">
+          {!isPending && !isError && (
+            <p className="result-count">
+              {visible.length} {visible.length === 1 ? 'item' : 'items'}
+            </p>
+          )}
+          {user && (
+            <Link to="/products/new" className="btn-ink btn-ink--inline">
+              Add a product
+            </Link>
+          )}
+        </div>
       </section>
 
       {isPending && (
@@ -195,137 +75,37 @@ export default function Home() {
         </div>
       )}
 
-      {!isPending && !isError && products.length === 0 && (
+      {!isPending && !isError && visible.length === 0 && (
         <div className="state-block">
-          <p className="state-block__headline">Nothing in this section yet.</p>
-          <p>Choose a different section to keep browsing.</p>
-          {category === ALL_CATEGORIES && isAdmin && (
-            <>
-              <p>
-                The Firestore products collection is empty. Load the original
-                starter catalog to get going, or add products above.
-              </p>
-              <button
-                type="button"
-                className="btn-ink"
-                onClick={() => seedMutation.mutate()}
-                disabled={isMutating}
-              >
-                {seedMutation.isPending
-                  ? "Loading catalog..."
-                  : "Load starter catalog"}
-              </button>
-            </>
-          )}
+          <p className="state-block__headline">Nothing here yet.</p>
+          <p>
+            {products.length === 0
+              ? 'Run the seed script, or sign in and add a product.'
+              : 'Choose a different section to keep browsing.'}
+          </p>
         </div>
       )}
 
-      {!isPending && !isError && products.length > 0 && (
+      {visible.length > 0 && (
         <div className="product-grid">
-          {products.map((product) => (
-            <div key={product.id} className="product-grid__cell">
-              <ProductCard product={product} />
-              {isAdmin && (
-                <div className="product-grid__actions">
-                  <button
-                    type="button"
-                    className="btn-remove"
-                    onClick={() => beginEdit(product)}
-                  >
-                    Edit product
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-remove"
-                    onClick={() => handleDelete(product.id)}
-                  >
-                    Delete product
-                  </button>
-                </div>
-              )}
-            </div>
+          {visible.map((product) => (
+            <ProductCard key={product.id} product={product} onDelete={setPendingDelete} />
           ))}
         </div>
       )}
 
-      {isAdmin && (
-        <section className="summary" style={{ marginTop: "48px" }}>
-          <button
-            type="button"
-            className="btn-ink"
-            onClick={() => setIsManageOpen((open) => !open)}
-          >
-            {isManageOpen ? "Hide product management" : "Manage products"}
-          </button>
-
-          {isManageOpen && (
-            <div style={{ marginTop: "20px" }}>
-              <p className="eyebrow">Product management</p>
-              <form onSubmit={handleSubmit}>
-                <input
-                  name="title"
-                  value={form.title}
-                  onChange={handleFieldChange}
-                  placeholder="Title"
-                  style={{ width: "100%", marginBottom: "8px" }}
-                />
-                <input
-                  name="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price}
-                  onChange={handleFieldChange}
-                  placeholder="Price"
-                  style={{ width: "100%", marginBottom: "8px" }}
-                />
-                <input
-                  name="category"
-                  value={form.category}
-                  onChange={handleFieldChange}
-                  placeholder="Category"
-                  style={{ width: "100%", marginBottom: "8px" }}
-                  list="catalog-categories"
-                />
-                <datalist id="catalog-categories">
-                  {categories.map((entry) => (
-                    <option key={entry} value={entry} />
-                  ))}
-                </datalist>
-                <input
-                  name="image"
-                  value={form.image}
-                  onChange={handleFieldChange}
-                  placeholder="Image URL (optional)"
-                  style={{ width: "100%", marginBottom: "8px" }}
-                />
-                <textarea
-                  name="description"
-                  value={form.description}
-                  onChange={handleFieldChange}
-                  placeholder="Description"
-                  rows={3}
-                  style={{ width: "100%", marginBottom: "8px" }}
-                />
-                {manageError && <p className="field-note">{manageError}</p>}
-                <button type="submit" className="btn-ink" disabled={isMutating}>
-                  {editingId ? "Save product changes" : "Create product"}
-                </button>
-                {editingId && (
-                  <button
-                    type="button"
-                    className="btn-remove"
-                    style={{ marginTop: "8px" }}
-                    onClick={cancelEdit}
-                  >
-                    Cancel editing
-                  </button>
-                )}
-              </form>
-            </div>
-          )}
-        </section>
-      )}
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        title="Delete this product?"
+        body={
+          pendingDelete
+            ? `"${pendingDelete.title}" will be removed from Firestore. This can't be undone.`
+            : ''
+        }
+        confirmLabel={removeProduct.isPending ? 'Deleting…' : 'Delete product'}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </>
   );
 }
