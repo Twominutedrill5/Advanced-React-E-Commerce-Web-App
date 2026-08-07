@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { configureStore } from "@reduxjs/toolkit";
 import cartReducer from "../../store/cartSlice";
 import ProductCard from "../../components/ProductCard";
@@ -15,8 +16,11 @@ jest.mock("firebase/firestore", () => ({
   addDoc: jest.fn(),
 }));
 jest.mock("../../Library/Firebase/Firebase", () => ({ db: {} }));
-jest.mock("../../context/useAuth", () => ({
+jest.mock("../../context/AuthContext", () => ({
   useAuth: () => ({ user: null }),
+}));
+jest.mock("../../services/orders", () => ({
+  createOrder: jest.fn(),
 }));
 
 const PRODUCT = {
@@ -30,18 +34,26 @@ const PRODUCT = {
 };
 
 function renderApp() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+    },
+  });
+
   const store = configureStore({
     reducer: { cart: cartReducer },
     preloadedState: { cart: { items: [], lastOrderTotal: null } },
   });
 
   render(
-    <Provider store={store}>
-      <MemoryRouter>
-        <ProductCard product={PRODUCT} />
-        <Cart />
-      </MemoryRouter>
-    </Provider>,
+    <QueryClientProvider client={queryClient}>
+      <Provider store={store}>
+        <MemoryRouter>
+          <ProductCard product={PRODUCT} />
+          <Cart />
+        </MemoryRouter>
+      </Provider>
+    </QueryClientProvider>,
   );
 }
 

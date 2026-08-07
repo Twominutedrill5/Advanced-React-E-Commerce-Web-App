@@ -5,6 +5,10 @@ import { configureStore } from "@reduxjs/toolkit";
 import cartReducer, { selectCartItems } from "../../store/cartSlice";
 import ProductCard from "../ProductCard";
 
+jest.mock("../../context/AuthContext", () => ({
+  useAuth: () => ({ user: null }),
+}));
+
 const PRODUCT = {
   id: 1,
   title: "Test Backpack",
